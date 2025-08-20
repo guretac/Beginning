@@ -64,7 +64,7 @@ def load_data(file_path):
             df[col] = df[col].apply(fix_chilean_coord)
 
     # Otras columnas numéricas: corregir posibles comas como decimales
-    columnas_numericas = ['Duracion', 'Qact', 'Q_reit', 'Tiempo de viaje', 'PxDIa'] 
+    columnas_numericas = ['Duracion', 'Qact', 'Q_reit', 'Tiempo de viaje', 'PxDIa']
     for col in columnas_numericas:
         if col in df.columns:
             df[col] = df[col].astype(str).str.replace(',', '.', regex=False)
@@ -211,24 +211,6 @@ with col2:
                 st.write(f"Datos completos para {selected_tecnico_filter}:")
                 st.dataframe(filtered_df, use_container_width=True)
 
-                @st.cache_data
-                def convert_df_to_excel(df_to_convert):
-                    output = io.BytesIO()
-                    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                        df_to_convert.to_excel(writer, index=False, sheet_name='Datos_Filtrados')
-                    processed_data = output.getvalue()
-                    return processed_data
-
-                excel_data = convert_df_to_excel(filtered_df)
-
-                st.download_button(
-                    label="Descargar datos filtrados en Excel",
-                    data=excel_data,
-                    file_name="datos_generales.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    help="Descarga el DataFrame visible en la tabla de abajo."
-                )
-
             else:
                 st.warning("No hay columnas disponibles para filtrar.")
                 st.dataframe(filtered_df, use_container_width=True)
@@ -247,7 +229,7 @@ with st.container():
             'cumple_franja',
             'PxDIa'
         ]
-        
+
         disponible_metrics = [col for col in metricas_rendimiento if col in df.columns]
 
         if not disponible_metrics:
@@ -319,20 +301,7 @@ with st.container():
                 if resultados_list:
                     resultados_df = pd.DataFrame(resultados_list)
                     st.dataframe(resultados_df, use_container_width=True)
-                    @st.cache_data
-                    def convert_df_to_excel(df_to_convert):
-                        output = io.BytesIO()
-                        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                            df_to_convert.to_excel(writer, index=False, sheet_name='Remuneraciones')
-                        processed_data = output.getvalue()
-                        return processed_data
-                    excel_data = convert_df_to_excel(resultados_df)
-                    st.download_button(
-                        label="Descargar en Excel",
-                        data=excel_data,
-                        file_name="remuneraciones_detalle.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
+
                 else:
                     st.info("No hay resultados para mostrar.")
             else:
