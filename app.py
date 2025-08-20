@@ -348,17 +348,6 @@ with st.container():
                     map_style='light'
                 )
                 st.pydeck_chart(r, use_container_width=True)
-                @st.cache_data
-                def convert_df_to_csv(df_to_convert):
-                    return df_to_convert.to_csv(index=False).encode('utf-8')
-                csv_data_map = convert_df_to_csv(filtered_df)
-                st.download_button(
-                    label="Descargar datos del mapa en CSV",
-                    data=csv_data_map,
-                    file_name="datos_mapa_filtrados.csv",
-                    mime="text/csv",
-                    help="Descarga los datos georeferenciados visibles en el mapa."
-                )
             else:
                 st.info("No hay datos de coordenadas válidos para mostrar en el mapa para los filtros seleccionados.")
         else:
