@@ -5,7 +5,7 @@ import numpy as np
 import io
 
 # Configurar el diseño de la página para ocupar todo el ancho
-st.set_page_page_config(layout="wide")
+st.set_page_config(layout="wide")
 
 # Título de la aplicación
 st.title("Dashboard de Beginning CLARO-VTR")
@@ -335,8 +335,11 @@ with st.container():
                     
                     # Calcular el total general y el costo asociado
                     total_general_km = total_km_por_tecnico['Kilómetros Recorridos'].sum()
-                    gasto_combustible = (total_general_km / rendimiento_vehiculo) * precio_petroleo
-                    
+                    if rendimiento_vehiculo > 0:
+                        gasto_combustible = (total_general_km / rendimiento_vehiculo) * precio_petroleo
+                    else:
+                        gasto_combustible = 0
+
                     st.markdown("---")
                     st.markdown(f"### **Total General de Kilómetros:**")
                     st.success(f"**{total_general_km:,.2f} km**")
@@ -345,7 +348,10 @@ with st.container():
 
                 else:
                     total_km_tecnico = filtered_df['KMS RECORRIDOS'].sum()
-                    gasto_combustible = (total_km_tecnico / rendimiento_vehiculo) * precio_petroleo
+                    if rendimiento_vehiculo > 0:
+                        gasto_combustible = (total_km_tecnico / rendimiento_vehiculo) * precio_petroleo
+                    else:
+                        gasto_combustible = 0
                     
                     st.write(f"Distribución de viajes para {selected_tecnico_filter}:")
                     st.bar_chart(filtered_df, x=filtered_df.index, y='KMS RECORRIDOS', use_container_width=True)
