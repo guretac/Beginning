@@ -69,7 +69,7 @@ def load_data(file_path):
         df['KMS RECORRIDOS'] = pd.to_numeric(df['KMS RECORRIDOS'], errors='coerce')
 
     # Otras columnas numéricas: corregir posibles comas como decimales
-    columnas_numericas = ['Duracion', 'Qact', 'Q_reit', 'Tiempo de viaje', 'PxDIa'] 
+    columnas_numericas = ['Duracion', 'Qact', 'Q_reit', 'Tiempo de viaje', 'PxDIa']
     for col in columnas_numericas:
         if col in df.columns:
             df[col] = df[col].astype(str).str.replace(',', '.', regex=False)
@@ -135,8 +135,12 @@ if filtered_df.empty:
     st.warning("No hay datos que coincidan con los filtros seleccionados.")
     st.stop()
 
-# --- SECCIÓN DE KPIS (Tarjetas de Indicadores Clave) ---
-st.markdown("### Indicadores Clave (KPIs)")
+# =========================================================================
+# === INICIO DE LA REORGANIZACIÓN DEL DASHBOARD ===
+# =========================================================================
+
+# --- 1. SECCIÓN DE KPIS (Tarjetas de Indicadores Clave) ---
+st.markdown("### 1. Indicadores Clave (KPIs)")
 kpi_col1, kpi_col2, kpi_col3 = st.columns(3)
 with kpi_col1:
     avg_qact = filtered_df['Qact'].mean() if 'Qact' in filtered_df.columns else 0
@@ -152,12 +156,166 @@ with kpi_col3:
 
 st.markdown("---")
 
-# --- DISEÑO PRINCIPAL DEL DASHBOARD ---
-# Organizar los visuales en columnas
-col1, col2 = st.columns(2, gap="large")
+# --- 2. DISTRIBUCIÓN DE VARIABLES ---
+with st.container():
+    with st.expander("2. Análisis de Datos Generales", expanded=True):
+        st.subheader("Distribución de variables")
 
-with col1:
-    with st.expander("2. Mapa Interactivo de Georeferencia", expanded=True):
+        columns_for_filter = [col for col in filtered_df.columns if col not in ["longitude", "latitude", "Tecnico", "Ciudad"]]
+
+        if columns_for_filter:
+            filter_column = st.selectbox("Selecciona la columna para analizar:", options=columns_for_filter, key='general_filter_col_select')
+
+            if filter_column:
+                st.subheader(f"Distribución de '{filter_column}'")
+                data_counts = filtered_df[filter_column].fillna('Sin Valor').value_counts().reset_index()
+                data_counts.columns = [filter_column, 'Conteo']
+                if not data_counts.empty:
+                    st.bar_chart(data_counts, x=filter_column, y='Conteo', use_container_width=True)
+                else:
+                    st.info("No hay datos para mostrar la distribución.")
+                st.write(f"Datos completos para los filtros seleccionados:")
+                st.dataframe(filtered_df, use_container_width=True)
+            else:
+                st.warning("No hay columnas disponibles para analizar.")
+                st.dataframe(filtered_df, use_container_width=True)
+
+st.markdown("---")
+
+# --- 3. MÓDULO DE KILÓMETROS RECORRIDOS ---
+with st.container():
+    with st.expander("3. Kilómetros Recorridos", expanded=True):
+        st.subheader("Análisis de Kilómetros Recorridos")
+
+        if 'KMS RECORRIDOS' in filtered_df.columns and 'Tecnico' in filtered_df.columns:
+
+            # Nuevos campos de entrada para el cálculo de costos
+            st.markdown("---")
+            st.markdown("#### Costo de combustible ⛽")
+            precio_petroleo = st.number_input(
+                "Precio del Petróleo por Litro ($CLP):",
+                min_value=1,
+                value=1000,
+                step=1
+            )
+            rendimiento_vehiculo = st.number_input(
+                "Rendimiento del Vehículo (km/L):",
+                min_value=1.0,
+                value=10.0,
+                step=0.1
+            )
+
+            st.markdown("### Resumen Gráfico de Kilómetros Recorridos")
+
+            if selected_tecnico_filter == 'TODOS':
+                total_km_por_tecnico = filtered_df.groupby('Tecnico')['KMS RECORRIDOS'].sum().reset_index()
+                total_km_por_tecnico.rename(columns={'KMS RECORRIDOS': 'Kilómetros Recorridos'}, inplace=True)
+
+                if not total_km_por_tecnico.empty:
+                    st.bar_chart(total_km_por_tecnico, x='Tecnico', y='Kilómetros Recorridos', use_container_width=True)
+
+                st.markdown("### Tabla de Kilómetros Totales por Técnico")
+                st.dataframe(total_km_por_tecnico, use_container_width=True)
+
+                # Calcular el total general y el costo asociado
+                total_general_km = total_km_por_tecnico['Kilómetros Recorridos'].sum()
+                if rendimiento_vehiculo > 0:
+                    gasto_combustible = (total_general_km / rendimiento_vehiculo) * precio_petroleo
+                else:
+                    gasto_combustible = 0
+
+                st.markdown("---")
+                st.markdown(f"### **Total General de Kilómetros:**")
+                st.success(f"**{total_general_km:,.2f} km**")
+                st.markdown(f"### **Gasto Estimado en Combustible:**")
+                st.success(f"**$ {gasto_combustible:,.2f} CLP**")
+
+            else:
+                total_km_tecnico = filtered_df['KMS RECORRIDOS'].sum()
+                if rendimiento_vehiculo > 0:
+                    gasto_combustible = (total_km_tecnico / rendimiento_vehiculo) * precio_petroleo
+                else:
+                    gasto_combustible = 0
+
+                st.write(f"Distribución de viajes para {selected_tecnico_filter}:")
+                st.bar_chart(filtered_df, x=filtered_df.index, y='KMS RECORRIDOS', use_container_width=True)
+
+                st.markdown("---")
+                st.markdown(f"### **Kilómetros Totales para {selected_tecnico_filter}:**")
+                st.success(f"**{total_km_tecnico:,.2f} km**")
+                st.markdown(f"### **Gasto Estimado en Combustible:**")
+                st.success(f"**$ {gasto_combustible:,.2f} CLP**")
+
+                st.markdown("---")
+                st.markdown("### Detalle de Viajes")
+                st.dataframe(filtered_df, use_container_width=True)
+        else:
+            st.warning("No se encontró la columna 'KMS RECORRIDOS' o 'Tecnico' en los datos. No se puede realizar este análisis.")
+
+st.markdown("---")
+
+# --- 4. MÓDULO DE CÁLCULO DE REMUNERACIÓN ---
+with st.container():
+    with st.expander("4. Calculadora de Remuneración", expanded=True):
+        st.subheader("Elige las columnas y sus pesos para el cálculo")
+        metricas_rendimiento = ['Duracion', 'Qact', 'Q_reit', 'Tiempo de viaje', 'cumple_franja', 'PxDIa']
+        disponible_metrics = [col for col in metricas_rendimiento if col in filtered_df.columns]
+
+        if not disponible_metrics:
+            st.warning("No se encontraron columnas de métricas de rendimiento para el cálculo.")
+        else:
+            if 'weights' not in st.session_state:
+                st.session_state.weights = {col: 1.0 for col in disponible_metrics}
+            selected_rem_cols = st.multiselect(
+                "Elige las métricas que influyen en la remuneración:",
+                options=disponible_metrics,
+                default=disponible_metrics[:2] if len(disponible_metrics) >= 2 else disponible_metrics,
+                key='rem_cols_multiselect'
+            )
+            weights = {}
+            if selected_rem_cols:
+                st.markdown("**Asigna un peso a cada métrica:**")
+                for col in selected_rem_cols:
+                    weights[col] = st.slider(
+                        f"Peso para '{col}'",
+                        min_value=-1.0,
+                        max_value=1.0,
+                        value=st.session_state.weights.get(col, 0.1),
+                        step=0.1,
+                        key=f"slider_{col}"
+                    )
+                st.session_state.weights.update(weights)
+
+                st.markdown("---")
+                st.subheader(f"Cálculo para {selected_tecnico_filter}")
+                if selected_tecnico_filter == 'TODOS':
+                    if not filtered_df.empty:
+                        resultados_list = []
+                        for tecnico in filtered_df['Tecnico'].unique():
+                            tecnico_data = filtered_df[filtered_df['Tecnico'] == tecnico][selected_rem_cols].mean()
+                            remuneracion_calculada = sum(tecnico_data.get(col, 0) * weights.get(col, 0) for col in selected_rem_cols)
+                            resultados_list.append({
+                                'Técnico': tecnico,
+                                'Remuneración Total': remuneracion_calculada
+                            })
+                        if resultados_list:
+                            resultados_df = pd.DataFrame(resultados_list)
+                            st.dataframe(resultados_df, use_container_width=True)
+                        else:
+                            st.info("No hay resultados para mostrar.")
+                else:
+                    tecnico_data = filtered_df[filtered_df['Tecnico'] == selected_tecnico_filter][selected_rem_cols].mean()
+                    remuneracion_calculada = sum(tecnico_data.get(col, 0) * weights.get(col, 0) for col in selected_rem_cols)
+                    st.markdown(f"### **Remuneración Total Calculada:**")
+                    st.success(f"**$ {remuneracion_calculada:,.2f}**")
+            else:
+                st.info("Por favor, selecciona las métricas para el cálculo.")
+
+st.markdown("---")
+
+# --- 5. MAPA INTERACTIVO DE GEOREFERENCIA ---
+with st.container():
+    with st.expander("5. Mapa Interactivo de Georeferencia", expanded=True):
         st.subheader("Mapa de georeferencia de los lugares")
 
         # Usar los nuevos nombres de columnas 'longitude' y 'latitude'
@@ -210,160 +368,8 @@ with col1:
         else:
             st.info("El archivo no contiene las columnas 'longitude' y 'latitude' o no hay datos válidos.")
 
-
-with col2:
-    with st.expander("1. Análisis de Datos Generales", expanded=True):
-        st.subheader("Distribución de variables")
-
-        columns_for_filter = [col for col in filtered_df.columns if col not in ["longitude", "latitude", "Tecnico", "Ciudad"]]
-
-        if columns_for_filter:
-            filter_column = st.selectbox("Selecciona la columna para analizar:", options=columns_for_filter, key='general_filter_col_select')
-
-            if filter_column:
-                st.subheader(f"Distribución de '{filter_column}'")
-                data_counts = filtered_df[filter_column].fillna('Sin Valor').value_counts().reset_index()
-                data_counts.columns = [filter_column, 'Conteo']
-                if not data_counts.empty:
-                    st.bar_chart(data_counts, x=filter_column, y='Conteo', use_container_width=True)
-                else:
-                    st.info("No hay datos para mostrar la distribución.")
-                st.write(f"Datos completos para los filtros seleccionados:")
-                st.dataframe(filtered_df, use_container_width=True)
-            else:
-                st.warning("No hay columnas disponibles para analizar.")
-                st.dataframe(filtered_df, use_container_width=True)
-
-
 st.markdown("---")
 
-# --- MÓDULO DE CÁLCULO DE REMUNERACIÓN Y KILÓMETROS ---
-with st.container():
-    rem_col, km_col = st.columns(2, gap="large")
-
-    # Módulo de Remuneración
-    with rem_col:
-        with st.expander("3. Calculadora de Remuneración", expanded=True):
-            st.subheader("Elige las columnas y sus pesos para el cálculo")
-            metricas_rendimiento = ['Duracion', 'Qact', 'Q_reit', 'Tiempo de viaje', 'cumple_franja', 'PxDIa']
-            disponible_metrics = [col for col in metricas_rendimiento if col in filtered_df.columns]
-
-            if not disponible_metrics:
-                st.warning("No se encontraron columnas de métricas de rendimiento para el cálculo.")
-            else:
-                if 'weights' not in st.session_state:
-                    st.session_state.weights = {col: 1.0 for col in disponible_metrics}
-                selected_rem_cols = st.multiselect(
-                    "Elige las métricas que influyen en la remuneración:",
-                    options=disponible_metrics,
-                    default=disponible_metrics[:2] if len(disponible_metrics) >= 2 else disponible_metrics,
-                    key='rem_cols_multiselect'
-                )
-                weights = {}
-                if selected_rem_cols:
-                    st.markdown("**Asigna un peso a cada métrica:**")
-                    for col in selected_rem_cols:
-                        weights[col] = st.slider(
-                            f"Peso para '{col}'",
-                            min_value=-1.0,
-                            max_value=1.0,
-                            value=st.session_state.weights.get(col, 0.1),
-                            step=0.1,
-                            key=f"slider_{col}"
-                        )
-                    st.session_state.weights.update(weights)
-
-                    st.markdown("---")
-                    st.subheader(f"Cálculo para {selected_tecnico_filter}")
-                    if selected_tecnico_filter == 'TODOS':
-                        if not filtered_df.empty:
-                            resultados_list = []
-                            for tecnico in filtered_df['Tecnico'].unique():
-                                tecnico_data = filtered_df[filtered_df['Tecnico'] == tecnico][selected_rem_cols].mean()
-                                remuneracion_calculada = sum(tecnico_data.get(col, 0) * weights.get(col, 0) for col in selected_rem_cols)
-                                resultados_list.append({
-                                    'Técnico': tecnico,
-                                    'Remuneración Total': remuneracion_calculada
-                                })
-                            if resultados_list:
-                                resultados_df = pd.DataFrame(resultados_list)
-                                st.dataframe(resultados_df, use_container_width=True)
-                            else:
-                                st.info("No hay resultados para mostrar.")
-                    else:
-                        tecnico_data = filtered_df[filtered_df['Tecnico'] == selected_tecnico_filter][selected_rem_cols].mean()
-                        remuneracion_calculada = sum(tecnico_data.get(col, 0) * weights.get(col, 0) for col in selected_rem_cols)
-                        st.markdown(f"### **Remuneración Total Calculada:**")
-                        st.success(f"**$ {remuneracion_calculada:,.2f}**")
-                else:
-                    st.info("Por favor, selecciona las métricas para el cálculo.")
-
-    # Módulo de Kilómetros
-    with km_col:
-        with st.expander("4. Kilómetros Recorridos", expanded=True):
-            st.subheader("Análisis de Kilómetros Recorridos")
-
-            if 'KMS RECORRIDOS' in filtered_df.columns and 'Tecnico' in filtered_df.columns:
-                
-                # Nuevos campos de entrada para el cálculo de costos
-                st.markdown("---")
-                st.markdown("#### Costo de combustible ⛽")
-                precio_petroleo = st.number_input(
-                    "Precio del Petróleo por Litro ($CLP):",
-                    min_value=1,
-                    value=1000,
-                    step=1
-                )
-                rendimiento_vehiculo = st.number_input(
-                    "Rendimiento del Vehículo (km/L):",
-                    min_value=1.0,
-                    value=10.0,
-                    step=0.1
-                )
-                
-                st.markdown("### Resumen Gráfico de Kilómetros Recorridos")
-
-                if selected_tecnico_filter == 'TODOS':
-                    total_km_por_tecnico = filtered_df.groupby('Tecnico')['KMS RECORRIDOS'].sum().reset_index()
-                    total_km_por_tecnico.rename(columns={'KMS RECORRIDOS': 'Kilómetros Recorridos'}, inplace=True)
-                    
-                    if not total_km_por_tecnico.empty:
-                        st.bar_chart(total_km_por_tecnico, x='Tecnico', y='Kilómetros Recorridos', use_container_width=True)
-                    
-                    st.markdown("### Tabla de Kilómetros Totales por Técnico")
-                    st.dataframe(total_km_por_tecnico, use_container_width=True)
-                    
-                    # Calcular el total general y el costo asociado
-                    total_general_km = total_km_por_tecnico['Kilómetros Recorridos'].sum()
-                    if rendimiento_vehiculo > 0:
-                        gasto_combustible = (total_general_km / rendimiento_vehiculo) * precio_petroleo
-                    else:
-                        gasto_combustible = 0
-
-                    st.markdown("---")
-                    st.markdown(f"### **Total General de Kilómetros:**")
-                    st.success(f"**{total_general_km:,.2f} km**")
-                    st.markdown(f"### **Gasto Estimado en Combustible:**")
-                    st.success(f"**$ {gasto_combustible:,.2f} CLP**")
-
-                else:
-                    total_km_tecnico = filtered_df['KMS RECORRIDOS'].sum()
-                    if rendimiento_vehiculo > 0:
-                        gasto_combustible = (total_km_tecnico / rendimiento_vehiculo) * precio_petroleo
-                    else:
-                        gasto_combustible = 0
-                    
-                    st.write(f"Distribución de viajes para {selected_tecnico_filter}:")
-                    st.bar_chart(filtered_df, x=filtered_df.index, y='KMS RECORRIDOS', use_container_width=True)
-                    
-                    st.markdown("---")
-                    st.markdown(f"### **Kilómetros Totales para {selected_tecnico_filter}:**")
-                    st.success(f"**{total_km_tecnico:,.2f} km**")
-                    st.markdown(f"### **Gasto Estimado en Combustible:**")
-                    st.success(f"**$ {gasto_combustible:,.2f} CLP**")
-                    
-                    st.markdown("---")
-                    st.markdown("### Detalle de Viajes")
-                    st.dataframe(filtered_df, use_container_width=True)
-            else:
-                st.warning("No se encontró la columna 'KMS RECORRIDOS' o 'Tecnico' en los datos. No se puede realizar este análisis.")
+# =========================================================================
+# === FIN DE LA REORGANIZACIÓN DEL DASHBOARD ===
+# =========================================================================
