@@ -3,17 +3,9 @@ import pandas as pd
 import pydeck as pdk
 import numpy as np
 import io
-from PIL import Image
 
 # Configurar el diseño de la página para ocupar todo el ancho
 st.set_page_config(layout="wide")
-
-# Cargar y mostrar el logo de EconoDataAI en la barra lateral
-try:
-    logo = Image.open('LOGO_st.png') # Reemplaza con el nombre de tu archivo
-    st.sidebar.image(logo, width=200)
-except FileNotFoundError:
-    st.sidebar.warning("Logo no encontrado. Asegúrate de que 'EconoDataAI_logo.png' esté en la misma carpeta.")
 
 # Título de la aplicación
 st.title("Dashboard de Beginning CLARO-VTR")
