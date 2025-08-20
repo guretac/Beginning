@@ -3,7 +3,6 @@ import pandas as pd
 import pydeck as pdk
 import numpy as np
 import io
-#from geopy.distance import geodesic
 
 # Configurar el diseño de la página para ocupar todo el ancho
 st.set_page_config(layout="wide")
@@ -53,6 +52,11 @@ def load_data(file_path):
         if col in df.columns:
             df[col] = df[col].apply(fix_chilean_coord)
 
+    # Convertir 'KMS RECORRIDOS' a formato numérico
+    if 'KMS RECORRIDOS' in df.columns:
+        df['KMS RECORRIDOS'] = df['KMS RECORRIDOS'].astype(str).str.replace(',', '.', regex=False)
+        df['KMS RECORRIDOS'] = pd.to_numeric(df['KMS RECORRIDOS'], errors='coerce')
+
     columnas_numericas = ['Duracion', 'Qact', 'Q_reit', 'Tiempo de viaje', 'PxDIa']
     for col in columnas_numericas:
         if col in df.columns:
@@ -70,7 +74,7 @@ def load_data(file_path):
     return df
 
 # Cargar los datos
-file_path = "Beginning.csv"
+file_path = "Beginning2.csv"
 try:
     df = load_data(file_path)
     if df is None or df.empty:
@@ -149,7 +153,6 @@ with col1:
             map_data = map_data.dropna(subset=['lon', 'lat'])
 
             if not map_data.empty:
-                # Usa el promedio de las coordenadas filtradas para el centro del mapa
                 view_state = pdk.ViewState(
                     latitude=map_data['lat'].mean(),
                     longitude=map_data['lon'].mean(),
@@ -281,4 +284,46 @@ with st.container():
                         st.success(f"**$ {remuneracion_calculada:,.2f}**")
                 else:
                     st.info("Por favor, selecciona las métricas para el cálculo.")
+
+    # Módulo de Kilómetros
+    with km_col:
+        with st.expander("4. Kilómetros Recorridos", expanded=True):
+            st.subheader("Análisis de Kilómetros Recorridos")
+
+            # Verificar si la columna existe en el DataFrame filtrado
+            if 'KMS RECORRIDOS' in filtered_df.columns and 'Tecnico' in filtered_df.columns:
+
+                st.markdown("### Resumen Gráfico de Kilómetros Recorridos")
+
+                if selected_tecnico_filter == 'TODOS':
+                    # Sumar los kilómetros por cada técnico
+                    total_km_por_tecnico = filtered_df.groupby('Tecnico')['KMS RECORRIDOS'].sum().reset_index()
+                    total_km_por_tecnico.rename(columns={'KMS RECORRIDOS': 'Kilómetros Recorridos'}, inplace=True)
                     
+                    if not total_km_por_tecnico.empty:
+                        st.bar_chart(total_km_por_tecnico, x='Tecnico', y='Kilómetros Recorridos', use_container_width=True)
+                    
+                    st.markdown("### Tabla de Kilómetros Totales por Técnico")
+                    st.dataframe(total_km_por_tecnico, use_container_width=True)
+                    
+                    # Mostrar el total general
+                    total_general_km = total_km_por_tecnico['Kilómetros Recorridos'].sum()
+                    st.markdown(f"### **Total General de Kilómetros:**")
+                    st.success(f"**{total_general_km:,.2f} km**")
+
+                else:
+                    # Sumar la distancia total del técnico seleccionado
+                    total_km_tecnico = filtered_df['KMS RECORRIDOS'].sum()
+                    
+                    # Mostrar el gráfico de contribución de cada viaje al total
+                    st.write(f"Distribución de viajes para {selected_tecnico_filter}:")
+                    st.bar_chart(filtered_df, x=filtered_df.index, y='KMS RECORRIDOS', use_container_width=True)
+                    
+                    st.markdown(f"### **Kilómetros Totales para {selected_tecnico_filter}:**")
+                    st.success(f"**{total_km_tecnico:,.2f} km**")
+                    
+                    st.markdown("---")
+                    st.markdown("### Detalle de Viajes")
+                    st.dataframe(filtered_df, use_container_width=True)
+            else:
+                st.warning("No se encontró la columna 'KMS RECORRIDOS' o 'Tecnico' en los datos. No se puede realizar este análisis.")
