@@ -87,7 +87,7 @@ def load_data(file_path):
     return df
 
 # Cargar los datos
-file_path = "Beginning.csv"
+file_path = "Beginning2.csv"
 try:
     df = load_data(file_path)
     if df is None or df.empty:
