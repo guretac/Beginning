@@ -103,33 +103,20 @@ except Exception as e:
 st.sidebar.header("Filtros del Dashboard")
 if 'Tecnico' in df.columns:
     tecnicos = ['TODOS'] + df['Tecnico'].unique().tolist()
-    selected_tecnico_filter = st.sidebar.selectbox("Selecciona un técnico:", options=tecnicos, key='global_tecnico_select')
-else:
-    st.warning("No se encontró la columna 'Tecnico'. El filtro por técnico no estará disponible.")
-    selected_tecnico_filter = 'TODOS'
-
-if 'Ciudad' in df.columns:
-    ciudades = ['TODAS'] + df['Ciudad'].dropna().unique().tolist()
-    if 'SANTIAGO' in ciudades:
-        default_ciudades = ['SANTIAGO']
-    else:
-        default_ciudades = ['TODAS']
-    selected_ciudades = st.sidebar.multiselect(
-        "Selecciona la(s) ciudad(es):",
-        options=ciudades,
-        default=default_ciudades
+    selected_tecnico = st.sidebar.multiselect(
+        "Seleccionar Técnico:",
+        options=tecnicos,
+        default=['TODOS']
     )
 else:
-    st.warning("No se encontró la columna 'Ciudad'. El filtro por ciudad no estará disponible.")
-    selected_ciudades = ['TODAS']
+    st.warning("No se encontró la columna 'Tecnico'. El filtro por técnico no estará disponible.")
+    selected_tecnico = ['TODOS']
 
 # Aplicar los filtros al DataFrame
 filtered_df = df.copy()
-if selected_tecnico_filter != 'TODOS':
-    filtered_df = filtered_df[filtered_df['Tecnico'] == selected_tecnico_filter]
 
-if 'TODAS' not in selected_ciudades:
-    filtered_df = filtered_df[filtered_df['Ciudad'].isin(selected_ciudades)]
+if 'TODOS' not in selected_tecnico:
+    filtered_df = filtered_df[filtered_df['Tecnico'].isin(selected_tecnico)]
 
 if filtered_df.empty:
     st.warning("No hay datos que coincidan con los filtros seleccionados.")
