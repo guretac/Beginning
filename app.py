@@ -321,3 +321,56 @@ with st.container():
                 st.success(f"**$ {remuneracion_calculada:,.2f}**")
         else:
             st.info("Por favor, selecciona las métricas para el cálculo antes de continuar.")
+            
+# --- Contenedor Abajo: Cálculo de Kilómetros Recorridos ---
+st.markdown("---")
+with st.container():
+    with st.expander("4. Calculadora de Kilómetros Recorridos", expanded=True):
+        st.subheader("Kilómetros totales recorridos por cada técnico")
+
+        # 1. Geocodificar la ubicación de la base
+        from geopy.geocoders import Nominatim
+        from geopy.distance import geodesic
+
+        base_address = "Copiapo 577, Santiago, Chile"
+
+        @st.cache_data
+        def geocode_base(address):
+            geolocator = Nominatim(user_agent="beginning_dashboard")
+            try:
+                location = geolocator.geocode(address)
+                if location:
+                    return (location.latitude, location.longitude)
+                else:
+                    return None
+            except Exception as e:
+                st.error(f"Error al geocodificar la dirección de la base: {e}")
+                return None
+
+        base_coords = geocode_base(base_address)
+
+        if base_coords:
+            st.info(f"Ubicación de la base geocodificada: Latitud {base_coords[0]:.4f}, Longitud {base_coords[1]:.4f}")
+
+            # 2. Calcular la distancia para cada viaje
+            def calculate_distance(row):
+                if pd.notna(row['Coord Y']) and pd.notna(row['Coord X']):
+                    try:
+                        return geodesic(base_coords, (row['Coord Y'], row['Coord X'])).km
+                    except ValueError:
+                        return 0
+                return 0
+
+            # Añadir una columna con la distancia calculada
+            df['Distancia_km'] = df.apply(calculate_distance, axis=1)
+
+            # 3. Sumar el total de kilómetros por técnico
+            total_km_por_tecnico = df.groupby('Tecnico')['Distancia_km'].sum().reset_index()
+            total_km_por_tecnico.rename(columns={'Distancia_km': 'Total Kilómetros Recorridos'}, inplace=True)
+
+            # 4. Mostrar los resultados
+            st.write("### Resumen de Kilómetros Totales por Técnico:")
+            st.dataframe(total_km_por_tecnico, use_container_width=True)
+
+        else:
+            st.warning("No se pudo obtener las coordenadas de la base. El cálculo de distancia no está disponible.")
