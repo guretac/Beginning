@@ -8,13 +8,17 @@ import io
 st.set_page_config(layout="wide")
 
 # Título de la aplicación
-st.title("Dashboard de Rendimiento - CLARO-VTR")
+st.title("Dashboard de Beginning CLARO-VTR")
 st.markdown("<p style='font-size:18px;'>Desarrollado por EconoDataAI</p>", unsafe_allow_html=True)
 st.markdown("<a href='https://www.econodataai.cl' target='_blank'>www.econodataai.cl</a>", unsafe_allow_html=True)
 st.markdown("---")
 
 # Función específica para corregir coordenadas en formato chileno
 def fix_chilean_coord(coord):
+    """
+    Convierte '-705.508.782' -> -70.5508782 y similares.
+    Sirve para coordenadas ingresadas en formato con separador de miles '.'
+    """
     s = str(coord).strip()
     if pd.isna(coord) or s.lower() in ('nan', '', 'none'):
         return np.nan
@@ -37,6 +41,12 @@ def fix_chilean_coord(coord):
 # Cargar el archivo CSV
 @st.cache_data
 def load_data(file_path):
+    """
+    Carga los datos del archivo CSV de forma robusta.
+    - Intenta leer con delimitador ';' y luego con ','
+    - Limpia los nombres de las columnas.
+    - Convierte y valida las columnas de coordenadas y otras columnas numéricas.
+    """
     try:
         df = pd.read_csv(file_path, sep=';')
     except Exception:
@@ -48,7 +58,8 @@ def load_data(file_path):
 
     df.columns = df.columns.str.strip()
 
-    for col in ['Coord X', 'Coord Y']:
+    # Aplica la corrección solo a las columnas de coordenadas, ahora con los nuevos nombres
+    for col in ['longitude', 'latitude']:
         if col in df.columns:
             df[col] = df[col].apply(fix_chilean_coord)
 
@@ -57,16 +68,18 @@ def load_data(file_path):
         df['KMS RECORRIDOS'] = df['KMS RECORRIDOS'].astype(str).str.replace(',', '.', regex=False)
         df['KMS RECORRIDOS'] = pd.to_numeric(df['KMS RECORRIDOS'], errors='coerce')
 
-    columnas_numericas = ['Duracion', 'Qact', 'Q_reit', 'Tiempo de viaje', 'PxDIa']
+    # Otras columnas numéricas: corregir posibles comas como decimales
+    columnas_numericas = ['Duracion', 'Qact', 'Q_reit', 'Tiempo de viaje', 'PxDIa'] 
     for col in columnas_numericas:
         if col in df.columns:
             df[col] = df[col].astype(str).str.replace(',', '.', regex=False)
             df[col] = pd.to_numeric(df[col], errors='coerce')
 
-    if "Coord X" in df.columns and "Coord Y" in df.columns:
-        df.dropna(subset=['Coord X', 'Coord Y'], inplace=True)
+    # Verificar los nuevos nombres de las columnas de coordenadas
+    if "longitude" in df.columns and "latitude" in df.columns:
+        df.dropna(subset=['longitude', 'latitude'], inplace=True)
     else:
-        st.warning("No se encontraron las columnas 'Coord X' y/o 'Coord Y'. El mapa no estará disponible.")
+        st.warning("No se encontraron las columnas 'longitude' y/o 'latitude'. El mapa no estará disponible.")
 
     if 'Tecnico' in df.columns:
         df['Tecnico'] = df['Tecnico'].astype(str)
@@ -147,22 +160,22 @@ with col1:
     with st.expander("2. Mapa Interactivo de Georeferencia", expanded=True):
         st.subheader("Mapa de georeferencia de los lugares")
 
-        if "Coord X" in filtered_df.columns and "Coord Y" in filtered_df.columns and not filtered_df.empty:
-            map_data = filtered_df[['Coord X', 'Coord Y', 'Tecnico']].copy()
-            map_data.rename(columns={'Coord X': 'lon', 'Coord Y': 'lat'}, inplace=True)
-            map_data = map_data.dropna(subset=['lon', 'lat'])
+        # Usar los nuevos nombres de columnas 'longitude' y 'latitude'
+        if "longitude" in filtered_df.columns and "latitude" in filtered_df.columns and not filtered_df.empty:
+            map_data = filtered_df[['longitude', 'latitude', 'Tecnico']].copy()
+            map_data = map_data.dropna(subset=['longitude', 'latitude'])
 
             if not map_data.empty:
                 view_state = pdk.ViewState(
-                    latitude=map_data['lat'].mean(),
-                    longitude=map_data['lon'].mean(),
+                    latitude=map_data['latitude'].mean(),
+                    longitude=map_data['longitude'].mean(),
                     zoom=10,
                     pitch=50,
                 )
                 layer = pdk.Layer(
                     "ScatterplotLayer",
                     data=map_data,
-                    get_position="[lon, lat]",
+                    get_position="[longitude, latitude]",
                     get_color=[200, 30, 0, 160],
                     get_radius=100,
                     pickable=True,
@@ -195,14 +208,14 @@ with col1:
             else:
                 st.info("No hay datos de coordenadas válidos para mostrar en el mapa para los filtros seleccionados.")
         else:
-            st.info("El archivo no contiene las columnas 'Coord X' y 'Coord Y' o no hay datos válidos.")
+            st.info("El archivo no contiene las columnas 'longitude' y 'latitude' o no hay datos válidos.")
 
 
 with col2:
     with st.expander("1. Análisis de Datos Generales", expanded=True):
         st.subheader("Distribución de variables")
 
-        columns_for_filter = [col for col in filtered_df.columns if col not in ["Coord X", "Coord Y", "Tecnico", "Ciudad"]]
+        columns_for_filter = [col for col in filtered_df.columns if col not in ["longitude", "latitude", "Tecnico", "Ciudad"]]
 
         if columns_for_filter:
             filter_column = st.selectbox("Selecciona la columna para analizar:", options=columns_for_filter, key='general_filter_col_select')
@@ -290,38 +303,24 @@ with st.container():
         with st.expander("4. Kilómetros Recorridos", expanded=True):
             st.subheader("Análisis de Kilómetros Recorridos")
 
-            # Verificar si la columna existe en el DataFrame filtrado
             if 'KMS RECORRIDOS' in filtered_df.columns and 'Tecnico' in filtered_df.columns:
-
                 st.markdown("### Resumen Gráfico de Kilómetros Recorridos")
-
                 if selected_tecnico_filter == 'TODOS':
-                    # Sumar los kilómetros por cada técnico
                     total_km_por_tecnico = filtered_df.groupby('Tecnico')['KMS RECORRIDOS'].sum().reset_index()
                     total_km_por_tecnico.rename(columns={'KMS RECORRIDOS': 'Kilómetros Recorridos'}, inplace=True)
-                    
                     if not total_km_por_tecnico.empty:
                         st.bar_chart(total_km_por_tecnico, x='Tecnico', y='Kilómetros Recorridos', use_container_width=True)
-                    
                     st.markdown("### Tabla de Kilómetros Totales por Técnico")
                     st.dataframe(total_km_por_tecnico, use_container_width=True)
-                    
-                    # Mostrar el total general
                     total_general_km = total_km_por_tecnico['Kilómetros Recorridos'].sum()
                     st.markdown(f"### **Total General de Kilómetros:**")
                     st.success(f"**{total_general_km:,.2f} km**")
-
                 else:
-                    # Sumar la distancia total del técnico seleccionado
                     total_km_tecnico = filtered_df['KMS RECORRIDOS'].sum()
-                    
-                    # Mostrar el gráfico de contribución de cada viaje al total
                     st.write(f"Distribución de viajes para {selected_tecnico_filter}:")
                     st.bar_chart(filtered_df, x=filtered_df.index, y='KMS RECORRIDOS', use_container_width=True)
-                    
                     st.markdown(f"### **Kilómetros Totales para {selected_tecnico_filter}:**")
                     st.success(f"**{total_km_tecnico:,.2f} km**")
-                    
                     st.markdown("---")
                     st.markdown("### Detalle de Viajes")
                     st.dataframe(filtered_df, use_container_width=True)
