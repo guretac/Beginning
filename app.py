@@ -5,7 +5,7 @@ import numpy as np
 import io
 
 # Configurar el diseño de la página para ocupar todo el ancho
-st.set_page_config(layout="wide")
+st.set_page_page_config(layout="wide")
 
 # Título de la aplicación
 st.title("Dashboard de Beginning CLARO-VTR")
@@ -87,7 +87,7 @@ def load_data(file_path):
     return df
 
 # Cargar los datos
-file_path = "Beginning2.csv"
+file_path = "Beginning.csv"
 try:
     df = load_data(file_path)
     if df is None or df.empty:
@@ -304,23 +304,58 @@ with st.container():
             st.subheader("Análisis de Kilómetros Recorridos")
 
             if 'KMS RECORRIDOS' in filtered_df.columns and 'Tecnico' in filtered_df.columns:
+                
+                # Nuevos campos de entrada para el cálculo de costos
+                st.markdown("---")
+                st.markdown("#### Costo de combustible ⛽")
+                precio_petroleo = st.number_input(
+                    "Precio del Petróleo por Litro ($CLP):",
+                    min_value=1,
+                    value=1000,
+                    step=1
+                )
+                rendimiento_vehiculo = st.number_input(
+                    "Rendimiento del Vehículo (km/L):",
+                    min_value=1.0,
+                    value=10.0,
+                    step=0.1
+                )
+                
                 st.markdown("### Resumen Gráfico de Kilómetros Recorridos")
+
                 if selected_tecnico_filter == 'TODOS':
                     total_km_por_tecnico = filtered_df.groupby('Tecnico')['KMS RECORRIDOS'].sum().reset_index()
                     total_km_por_tecnico.rename(columns={'KMS RECORRIDOS': 'Kilómetros Recorridos'}, inplace=True)
+                    
                     if not total_km_por_tecnico.empty:
                         st.bar_chart(total_km_por_tecnico, x='Tecnico', y='Kilómetros Recorridos', use_container_width=True)
+                    
                     st.markdown("### Tabla de Kilómetros Totales por Técnico")
                     st.dataframe(total_km_por_tecnico, use_container_width=True)
+                    
+                    # Calcular el total general y el costo asociado
                     total_general_km = total_km_por_tecnico['Kilómetros Recorridos'].sum()
+                    gasto_combustible = (total_general_km / rendimiento_vehiculo) * precio_petroleo
+                    
+                    st.markdown("---")
                     st.markdown(f"### **Total General de Kilómetros:**")
                     st.success(f"**{total_general_km:,.2f} km**")
+                    st.markdown(f"### **Gasto Estimado en Combustible:**")
+                    st.success(f"**$ {gasto_combustible:,.2f} CLP**")
+
                 else:
                     total_km_tecnico = filtered_df['KMS RECORRIDOS'].sum()
+                    gasto_combustible = (total_km_tecnico / rendimiento_vehiculo) * precio_petroleo
+                    
                     st.write(f"Distribución de viajes para {selected_tecnico_filter}:")
                     st.bar_chart(filtered_df, x=filtered_df.index, y='KMS RECORRIDOS', use_container_width=True)
+                    
+                    st.markdown("---")
                     st.markdown(f"### **Kilómetros Totales para {selected_tecnico_filter}:**")
                     st.success(f"**{total_km_tecnico:,.2f} km**")
+                    st.markdown(f"### **Gasto Estimado en Combustible:**")
+                    st.success(f"**$ {gasto_combustible:,.2f} CLP**")
+                    
                     st.markdown("---")
                     st.markdown("### Detalle de Viajes")
                     st.dataframe(filtered_df, use_container_width=True)
