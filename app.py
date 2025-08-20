@@ -121,67 +121,51 @@ if filtered_df.empty:
 # --- 1. SECCIÓN DE KPIS (Tarjetas de Indicadores Clave) ---
 st.markdown("### 1. Indicadores Clave (KPIs)")
 
+def calculate_kpis(data_frame, label_prefix=""):
+    """
+    Calcula y muestra los KPIs para un DataFrame dado.
+    """
+    avg_qact = data_frame['Qact'].mean() if 'Qact' in data_frame.columns else 0
+    total_km = data_frame['KMS RECORRIDOS'].sum() if 'KMS RECORRIDOS' in data_frame.columns else 0
+
+    # Calcular el promedio de cumplimiento de franja
+    if 'cumple_franja' in data_frame.columns:
+        # Convertir los valores a 1 si es 'Cumple' y 0 si no lo es
+        data_frame['cumple_franja_num'] = data_frame['cumple_franja'].apply(lambda x: 1 if x == 'Cumple' else 0)
+        avg_cumple_franja = data_frame['cumple_franja_num'].mean() * 100 if 'cumple_franja_num' in data_frame.columns else 0
+    else:
+        avg_cumple_franja = 0
+
+    avg_duration = data_frame['Duracion'].mean() if 'Duracion' in data_frame.columns else 0
+
+    kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
+    with kpi_col1:
+        st.metric(label=f"Promedio Qact{label_prefix}", value=f"{avg_qact:.2f}")
+
+    with kpi_col2:
+        st.metric(label=f"Promedio Cumplimiento Franja{label_prefix}", value=f"{avg_cumple_franja:.2f}%")
+
+    with kpi_col3:
+        st.metric(label=f"Promedio Duración (min){label_prefix}", value=f"{avg_duration:.0f}")
+    
+    with kpi_col4:
+        st.metric(label=f"Total Kilómetros{label_prefix}", value=f"{total_km:,.0f} km")
+
+
 # Lógica para mostrar KPIs en base a la selección
 if 'TODOS' in selected_tecnicos:
     st.markdown("#### Resumen total de todos los técnicos")
-    kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
-    with kpi_col1:
-        avg_qact = df['Qact'].mean() if 'Qact' in df.columns else 0
-        st.metric(label="Promedio Qact", value=f"{avg_qact:.2f}")
-
-    with kpi_col2:
-        total_reits = df['Q_reit'].sum() if 'Q_reit' in df.columns else 0
-        st.metric(label="Total Reincidencias", value=f"{total_reits:.0f}")
-
-    with kpi_col3:
-        avg_duration = df['Duracion'].mean() if 'Duracion' in df.columns else 0
-        st.metric(label="Promedio Duración (min)", value=f"{avg_duration:.0f}")
-
-    with kpi_col4:
-        total_km = df['KMS RECORRIDOS'].sum() if 'KMS RECORRIDOS' in df.columns else 0
-        st.metric(label="Total Kilómetros", value=f"{total_km:,.0f} km")
-
+    calculate_kpis(df)
 else:
     st.markdown("#### Comparación de KPIs: Total vs. Seleccionados")
-    # KPIs para el total
+    
     st.markdown("##### Total de todos los técnicos")
-    kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
-    with kpi_col1:
-        avg_qact_total = df['Qact'].mean() if 'Qact' in df.columns else 0
-        st.metric(label="Promedio Qact", value=f"{avg_qact_total:.2f}")
-
-    with kpi_col2:
-        total_reits_total = df['Q_reit'].sum() if 'Q_reit' in df.columns else 0
-        st.metric(label="Total Reincidencias", value=f"{total_reits_total:.0f}")
-
-    with kpi_col3:
-        avg_duration_total = df['Duracion'].mean() if 'Duracion' in df.columns else 0
-        st.metric(label="Promedio Duración (min)", value=f"{avg_duration_total:.0f}")
-
-    with kpi_col4:
-        total_km_total = df['KMS RECORRIDOS'].sum() if 'KMS RECORRIDOS' in df.columns else 0
-        st.metric(label="Total Kilómetros", value=f"{total_km_total:,.0f} km")
-
+    calculate_kpis(df)
+    
     st.markdown("---")
 
-    # KPIs para los técnicos seleccionados
     st.markdown("##### Técnicos seleccionados")
-    kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
-    with kpi_col1:
-        avg_qact_filtered = filtered_df['Qact'].mean() if 'Qact' in filtered_df.columns else 0
-        st.metric(label="Promedio Qact", value=f"{avg_qact_filtered:.2f}")
-
-    with kpi_col2:
-        total_reits_filtered = filtered_df['Q_reit'].sum() if 'Q_reit' in filtered_df.columns else 0
-        st.metric(label="Total Reincidencias", value=f"{total_reits_filtered:.0f}")
-
-    with kpi_col3:
-        avg_duration_filtered = filtered_df['Duracion'].mean() if 'Duracion' in filtered_df.columns else 0
-        st.metric(label="Promedio Duración (min)", value=f"{avg_duration_filtered:.0f}")
-
-    with kpi_col4:
-        total_km_filtered = filtered_df['KMS RECORRIDOS'].sum() if 'KMS RECORRIDOS' in filtered_df.columns else 0
-        st.metric(label="Total Kilómetros", value=f"{total_km_filtered:,.0f} km")
+    calculate_kpis(filtered_df)
 
 st.markdown("---")
 
