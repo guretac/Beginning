@@ -10,6 +10,7 @@ st.set_page_config(layout="wide")
 # Título de la aplicación
 st.title("Dashboard de Beginning CLARO-VTR")
 st.markdown("<p style='font-size:18px;'>Desarrollado por EconoDataAI</p>", unsafe_allow_html=True)
+st.markdown("<p style='font-size:18px;'>www.econodataai.cl</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 # Función específica para corregir coordenadas en formato chileno
