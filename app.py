@@ -43,9 +43,6 @@ def fix_chilean_coord(coord):
 def load_data(file_path):
     """
     Carga los datos del archivo CSV de forma robusta.
-    - Intenta leer con delimitador ';' y luego con ','
-    - Limpia los nombres de las columnas.
-    - Convierte y valida las columnas de coordenadas y otras columnas numéricas.
     """
     try:
         df = pd.read_csv(file_path, sep=';')
@@ -58,24 +55,20 @@ def load_data(file_path):
 
     df.columns = df.columns.str.strip()
 
-    # Aplica la corrección solo a las columnas de coordenadas, ahora con los nuevos nombres
     for col in ['longitude', 'latitude']:
         if col in df.columns:
             df[col] = df[col].apply(fix_chilean_coord)
 
-    # Convertir 'KMS RECORRIDOS' a formato numérico
     if 'KMS RECORRIDOS' in df.columns:
         df['KMS RECORRIDOS'] = df['KMS RECORRIDOS'].astype(str).str.replace(',', '.', regex=False)
         df['KMS RECORRIDOS'] = pd.to_numeric(df['KMS RECORRIDOS'], errors='coerce')
 
-    # Otras columnas numéricas: corregir posibles comas como decimales
     columnas_numericas = ['Duracion', 'Qact', 'Q_reit', 'Tiempo de viaje', 'PxDIa']
     for col in columnas_numericas:
         if col in df.columns:
             df[col] = df[col].astype(str).str.replace(',', '.', regex=False)
             df[col] = pd.to_numeric(df[col], errors='coerce')
 
-    # Verificar los nuevos nombres de las columnas de coordenadas
     if "longitude" in df.columns and "latitude" in df.columns:
         df.dropna(subset=['longitude', 'latitude'], inplace=True)
     else:
@@ -99,7 +92,7 @@ except Exception as e:
     st.error(f"Ocurrió un error inesperado al cargar el archivo: {e}.")
     st.stop()
 
-# --- FILTROS GLOBALES (Similares a un Dashboard de BI) ---
+# --- FILTROS GLOBALES ---
 st.sidebar.header("Filtros del Dashboard")
 if 'Tecnico' in df.columns:
     tecnicos = ['TODOS'] + df['Tecnico'].unique().tolist()
@@ -127,18 +120,68 @@ if filtered_df.empty:
 
 # --- 1. SECCIÓN DE KPIS (Tarjetas de Indicadores Clave) ---
 st.markdown("### 1. Indicadores Clave (KPIs)")
-kpi_col1, kpi_col2, kpi_col3 = st.columns(3)
-with kpi_col1:
-    avg_qact = filtered_df['Qact'].mean() if 'Qact' in filtered_df.columns else 0
-    st.metric(label="Promedio Qact", value=f"{avg_qact:.2f}")
 
-with kpi_col2:
-    total_reits = filtered_df['Q_reit'].sum() if 'Q_reit' in filtered_df.columns else 0
-    st.metric(label="Total Reincidencias", value=f"{total_reits:.0f}")
+# Lógica para mostrar KPIs en base a la selección
+if 'TODOS' in selected_tecnicos:
+    st.markdown("#### Resumen total de todos los técnicos")
+    kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
+    with kpi_col1:
+        avg_qact = df['Qact'].mean() if 'Qact' in df.columns else 0
+        st.metric(label="Promedio Qact", value=f"{avg_qact:.2f}")
 
-with kpi_col3:
-    avg_duration = filtered_df['Duracion'].mean() if 'Duracion' in filtered_df.columns else 0
-    st.metric(label="Promedio Duración (min)", value=f"{avg_duration:.0f}")
+    with kpi_col2:
+        total_reits = df['Q_reit'].sum() if 'Q_reit' in df.columns else 0
+        st.metric(label="Total Reincidencias", value=f"{total_reits:.0f}")
+
+    with kpi_col3:
+        avg_duration = df['Duracion'].mean() if 'Duracion' in df.columns else 0
+        st.metric(label="Promedio Duración (min)", value=f"{avg_duration:.0f}")
+
+    with kpi_col4:
+        total_km = df['KMS RECORRIDOS'].sum() if 'KMS RECORRIDOS' in df.columns else 0
+        st.metric(label="Total Kilómetros", value=f"{total_km:,.0f} km")
+
+else:
+    st.markdown("#### Comparación de KPIs: Total vs. Seleccionados")
+    # KPIs para el total
+    st.markdown("##### Total de todos los técnicos")
+    kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
+    with kpi_col1:
+        avg_qact_total = df['Qact'].mean() if 'Qact' in df.columns else 0
+        st.metric(label="Promedio Qact", value=f"{avg_qact_total:.2f}")
+
+    with kpi_col2:
+        total_reits_total = df['Q_reit'].sum() if 'Q_reit' in df.columns else 0
+        st.metric(label="Total Reincidencias", value=f"{total_reits_total:.0f}")
+
+    with kpi_col3:
+        avg_duration_total = df['Duracion'].mean() if 'Duracion' in df.columns else 0
+        st.metric(label="Promedio Duración (min)", value=f"{avg_duration_total:.0f}")
+
+    with kpi_col4:
+        total_km_total = df['KMS RECORRIDOS'].sum() if 'KMS RECORRIDOS' in df.columns else 0
+        st.metric(label="Total Kilómetros", value=f"{total_km_total:,.0f} km")
+
+    st.markdown("---")
+
+    # KPIs para los técnicos seleccionados
+    st.markdown("##### Técnicos seleccionados")
+    kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
+    with kpi_col1:
+        avg_qact_filtered = filtered_df['Qact'].mean() if 'Qact' in filtered_df.columns else 0
+        st.metric(label="Promedio Qact", value=f"{avg_qact_filtered:.2f}")
+
+    with kpi_col2:
+        total_reits_filtered = filtered_df['Q_reit'].sum() if 'Q_reit' in filtered_df.columns else 0
+        st.metric(label="Total Reincidencias", value=f"{total_reits_filtered:.0f}")
+
+    with kpi_col3:
+        avg_duration_filtered = filtered_df['Duracion'].mean() if 'Duracion' in filtered_df.columns else 0
+        st.metric(label="Promedio Duración (min)", value=f"{avg_duration_filtered:.0f}")
+
+    with kpi_col4:
+        total_km_filtered = filtered_df['KMS RECORRIDOS'].sum() if 'KMS RECORRIDOS' in filtered_df.columns else 0
+        st.metric(label="Total Kilómetros", value=f"{total_km_filtered:,.0f} km")
 
 st.markdown("---")
 
@@ -146,12 +189,10 @@ st.markdown("---")
 with st.container():
     with st.expander("2. Distribución de Variables", expanded=True):
         st.subheader("Análisis de Datos Generales")
-
         columns_for_filter = [col for col in filtered_df.columns if col not in ["longitude", "latitude", "Tecnico", "Ciudad"]]
 
         if columns_for_filter:
             filter_column = st.selectbox("Selecciona la columna para analizar:", options=columns_for_filter, key='general_filter_col_select')
-
             if filter_column:
                 st.subheader(f"Distribución de '{filter_column}'")
                 data_counts = filtered_df[filter_column].fillna('Sin Valor').value_counts().reset_index()
@@ -165,14 +206,12 @@ with st.container():
             else:
                 st.warning("No hay columnas disponibles para analizar.")
                 st.dataframe(filtered_df, use_container_width=True)
-
 st.markdown("---")
 
-# --- 3. MÓDULO DE KILÓMETROS RECORRIDOS ---
+# --- 3. KILÓMETROS RECORRIDOS ---
 with st.container():
     with st.expander("3. Kilómetros Recorridos", expanded=True):
         st.subheader("Análisis de Kilómetros Recorridos")
-
         if 'KMS RECORRIDOS' in filtered_df.columns and 'Tecnico' in filtered_df.columns:
             st.markdown("---")
             st.markdown("#### Costo de combustible ⛽")
@@ -188,62 +227,45 @@ with st.container():
                 value=10.0,
                 step=0.1
             )
-
             st.markdown("### Resumen Gráfico de Kilómetros Recorridos")
 
             if 'TODOS' in selected_tecnicos:
                 total_km_por_tecnico = filtered_df.groupby('Tecnico')['KMS RECORRIDOS'].sum().reset_index()
                 total_km_por_tecnico.rename(columns={'KMS RECORRIDOS': 'Kilómetros Recorridos'}, inplace=True)
-
                 if not total_km_por_tecnico.empty:
                     st.bar_chart(total_km_por_tecnico, x='Tecnico', y='Kilómetros Recorridos', use_container_width=True)
-
                 st.markdown("### Tabla de Kilómetros Totales por Técnico")
                 st.dataframe(total_km_por_tecnico, use_container_width=True)
-
                 total_general_km = total_km_por_tecnico['Kilómetros Recorridos'].sum()
-                if rendimiento_vehiculo > 0:
-                    gasto_combustible = (total_general_km / rendimiento_vehiculo) * precio_petroleo
-                else:
-                    gasto_combustible = 0
-
+                gasto_combustible = (total_general_km / rendimiento_vehiculo) * precio_petroleo if rendimiento_vehiculo > 0 else 0
                 st.markdown("---")
                 st.markdown(f"### **Total General de Kilómetros:**")
                 st.success(f"**{total_general_km:,.2f} km**")
                 st.markdown(f"### **Gasto Estimado en Combustible:**")
                 st.success(f"**$ {gasto_combustible:,.2f} CLP**")
-
             else:
                 total_km_tecnico = filtered_df['KMS RECORRIDOS'].sum()
-                if rendimiento_vehiculo > 0:
-                    gasto_combustible = (total_km_tecnico / rendimiento_vehiculo) * precio_petroleo
-                else:
-                    gasto_combustible = 0
-
+                gasto_combustible = (total_km_tecnico / rendimiento_vehiculo) * precio_petroleo if rendimiento_vehiculo > 0 else 0
                 st.write(f"Distribución de viajes para los técnicos seleccionados:")
                 st.bar_chart(filtered_df.groupby('Tecnico')['KMS RECORRIDOS'].sum(), use_container_width=True)
-
                 st.markdown("---")
                 st.markdown(f"### **Kilómetros Totales para los técnicos seleccionados:**")
                 st.success(f"**{total_km_tecnico:,.2f} km**")
                 st.markdown(f"### **Gasto Estimado en Combustible:**")
                 st.success(f"**$ {gasto_combustible:,.2f} CLP**")
-
                 st.markdown("---")
                 st.markdown("### Detalle de Viajes")
                 st.dataframe(filtered_df, use_container_width=True)
         else:
             st.warning("No se encontró la columna 'KMS RECORRIDOS' o 'Tecnico' en los datos. No se puede realizar este análisis.")
-
 st.markdown("---")
 
-# --- 4. MÓDULO DE CÁLCULO DE REMUNERACIÓN ---
+# --- 4. CALCULADORA DE REMUNERACIÓN ---
 with st.container():
     with st.expander("4. Calculadora de Remuneración", expanded=True):
         st.subheader("Elige las columnas y sus pesos para el cálculo")
         metricas_rendimiento = ['Duracion', 'Qact', 'Q_reit', 'Tiempo de viaje', 'cumple_franja', 'PxDIa']
         disponible_metrics = [col for col in metricas_rendimiento if col in filtered_df.columns]
-
         if not disponible_metrics:
             st.warning("No se encontraron columnas de métricas de rendimiento para el cálculo.")
         else:
@@ -268,7 +290,6 @@ with st.container():
                         key=f"slider_{col}"
                     )
                 st.session_state.weights.update(weights)
-
                 st.markdown("---")
                 if 'TODOS' in selected_tecnicos:
                     if not filtered_df.empty:
@@ -292,18 +313,15 @@ with st.container():
                     st.success(f"**$ {remuneracion_calculada:,.2f}**")
             else:
                 st.info("Por favor, selecciona las métricas para el cálculo.")
-
 st.markdown("---")
 
 # --- 5. MAPA INTERACTIVO DE GEOREFERENCIA ---
 with st.container():
     with st.expander("5. Mapa Interactivo de Georeferencia", expanded=True):
         st.subheader("Mapa de georeferencia de los lugares")
-
         if "longitude" in filtered_df.columns and "latitude" in filtered_df.columns and not filtered_df.empty:
             map_data = filtered_df[['longitude', 'latitude', 'Tecnico']].copy()
             map_data = map_data.dropna(subset=['longitude', 'latitude'])
-
             if not map_data.empty:
                 view_state = pdk.ViewState(
                     latitude=map_data['latitude'].mean(),
@@ -330,11 +348,9 @@ with st.container():
                     map_style='light'
                 )
                 st.pydeck_chart(r, use_container_width=True)
-
                 @st.cache_data
                 def convert_df_to_csv(df_to_convert):
                     return df_to_convert.to_csv(index=False).encode('utf-8')
-
                 csv_data_map = convert_df_to_csv(filtered_df)
                 st.download_button(
                     label="Descargar datos del mapa en CSV",
@@ -343,10 +359,8 @@ with st.container():
                     mime="text/csv",
                     help="Descarga los datos georeferenciados visibles en el mapa."
                 )
-
             else:
                 st.info("No hay datos de coordenadas válidos para mostrar en el mapa para los filtros seleccionados.")
         else:
             st.info("El archivo no contiene las columnas 'longitude' y 'latitude' o no hay datos válidos.")
-
 st.markdown("---")
