@@ -244,12 +244,23 @@ with st.container():
             st.warning("No se encontró la columna 'KMS RECORRIDOS' o 'Tecnico' en los datos. No se puede realizar este análisis.")
 st.markdown("---")
 
-# --- 4. CALCULADORA DE REMUNERACIÓN ---
+# Módulo de Remuneración
 with st.container():
     with st.expander("4. Calculadora de Remuneración", expanded=True):
         st.subheader("Elige las columnas y sus pesos para el cálculo")
-        metricas_rendimiento = ['Duracion', 'Qact', 'Q_reit', 'Tiempo de viaje', 'cumple_franja', 'PxDIa']
+        metricas_rendimiento = [
+            'Duracion',
+            'Qact',
+            'Q_reit',
+            'Tiempo de viaje',
+            'cumple_franja',
+            'PxDIa',
+            'Cantidad de derivaciones NO terreno',
+            'Cantidad de derivaciones terreno',
+            'Cantidad_Reag'
+        ]
         disponible_metrics = [col for col in metricas_rendimiento if col in filtered_df.columns]
+
         if not disponible_metrics:
             st.warning("No se encontraron columnas de métricas de rendimiento para el cálculo.")
         else:
@@ -274,7 +285,10 @@ with st.container():
                         key=f"slider_{col}"
                     )
                 st.session_state.weights.update(weights)
+
                 st.markdown("---")
+
+                # Lógica para mostrar la tabla o el valor único
                 if 'TODOS' in selected_tecnicos:
                     if not filtered_df.empty:
                         resultados_list = []
@@ -297,7 +311,6 @@ with st.container():
                     st.success(f"**$ {remuneracion_calculada:,.2f}**")
             else:
                 st.info("Por favor, selecciona las métricas para el cálculo.")
-st.markdown("---")
 
 # --- 5. MAPA INTERACTIVO DE GEOREFERENCIA ---
 with st.container():
