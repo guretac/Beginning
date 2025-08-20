@@ -103,20 +103,19 @@ except Exception as e:
 st.sidebar.header("Filtros del Dashboard")
 if 'Tecnico' in df.columns:
     tecnicos = ['TODOS'] + df['Tecnico'].unique().tolist()
-    selected_tecnico = st.sidebar.multiselect(
+    selected_tecnicos = st.sidebar.multiselect(
         "Seleccionar Técnico:",
         options=tecnicos,
         default=['TODOS']
     )
 else:
     st.warning("No se encontró la columna 'Tecnico'. El filtro por técnico no estará disponible.")
-    selected_tecnico = ['TODOS']
+    selected_tecnicos = ['TODOS']
 
 # Aplicar los filtros al DataFrame
 filtered_df = df.copy()
-
-if 'TODOS' not in selected_tecnico:
-    filtered_df = filtered_df[filtered_df['Tecnico'].isin(selected_tecnico)]
+if 'TODOS' not in selected_tecnicos:
+    filtered_df = filtered_df[filtered_df['Tecnico'].isin(selected_tecnicos)]
 
 if filtered_df.empty:
     st.warning("No hay datos que coincidan con los filtros seleccionados.")
@@ -145,8 +144,8 @@ st.markdown("---")
 
 # --- 2. DISTRIBUCIÓN DE VARIABLES ---
 with st.container():
-    with st.expander("2. Análisis de Datos Generales", expanded=True):
-        st.subheader("Distribución de variables")
+    with st.expander("2. Distribución de Variables", expanded=True):
+        st.subheader("Análisis de Datos Generales")
 
         columns_for_filter = [col for col in filtered_df.columns if col not in ["longitude", "latitude", "Tecnico", "Ciudad"]]
 
@@ -175,8 +174,6 @@ with st.container():
         st.subheader("Análisis de Kilómetros Recorridos")
 
         if 'KMS RECORRIDOS' in filtered_df.columns and 'Tecnico' in filtered_df.columns:
-
-            # Nuevos campos de entrada para el cálculo de costos
             st.markdown("---")
             st.markdown("#### Costo de combustible ⛽")
             precio_petroleo = st.number_input(
@@ -194,7 +191,7 @@ with st.container():
 
             st.markdown("### Resumen Gráfico de Kilómetros Recorridos")
 
-            if selected_tecnico_filter == 'TODOS':
+            if 'TODOS' in selected_tecnicos:
                 total_km_por_tecnico = filtered_df.groupby('Tecnico')['KMS RECORRIDOS'].sum().reset_index()
                 total_km_por_tecnico.rename(columns={'KMS RECORRIDOS': 'Kilómetros Recorridos'}, inplace=True)
 
@@ -204,7 +201,6 @@ with st.container():
                 st.markdown("### Tabla de Kilómetros Totales por Técnico")
                 st.dataframe(total_km_por_tecnico, use_container_width=True)
 
-                # Calcular el total general y el costo asociado
                 total_general_km = total_km_por_tecnico['Kilómetros Recorridos'].sum()
                 if rendimiento_vehiculo > 0:
                     gasto_combustible = (total_general_km / rendimiento_vehiculo) * precio_petroleo
@@ -224,11 +220,11 @@ with st.container():
                 else:
                     gasto_combustible = 0
 
-                st.write(f"Distribución de viajes para {selected_tecnico_filter}:")
-                st.bar_chart(filtered_df, x=filtered_df.index, y='KMS RECORRIDOS', use_container_width=True)
+                st.write(f"Distribución de viajes para los técnicos seleccionados:")
+                st.bar_chart(filtered_df.groupby('Tecnico')['KMS RECORRIDOS'].sum(), use_container_width=True)
 
                 st.markdown("---")
-                st.markdown(f"### **Kilómetros Totales para {selected_tecnico_filter}:**")
+                st.markdown(f"### **Kilómetros Totales para los técnicos seleccionados:**")
                 st.success(f"**{total_km_tecnico:,.2f} km**")
                 st.markdown(f"### **Gasto Estimado en Combustible:**")
                 st.success(f"**$ {gasto_combustible:,.2f} CLP**")
@@ -274,8 +270,7 @@ with st.container():
                 st.session_state.weights.update(weights)
 
                 st.markdown("---")
-                st.subheader(f"Cálculo para {selected_tecnico_filter}")
-                if selected_tecnico_filter == 'TODOS':
+                if 'TODOS' in selected_tecnicos:
                     if not filtered_df.empty:
                         resultados_list = []
                         for tecnico in filtered_df['Tecnico'].unique():
@@ -291,9 +286,9 @@ with st.container():
                         else:
                             st.info("No hay resultados para mostrar.")
                 else:
-                    tecnico_data = filtered_df[filtered_df['Tecnico'] == selected_tecnico_filter][selected_rem_cols].mean()
+                    tecnico_data = filtered_df[selected_rem_cols].mean()
                     remuneracion_calculada = sum(tecnico_data.get(col, 0) * weights.get(col, 0) for col in selected_rem_cols)
-                    st.markdown(f"### **Remuneración Total Calculada:**")
+                    st.markdown(f"### **Remuneración Total Calculada para los técnicos seleccionados:**")
                     st.success(f"**$ {remuneracion_calculada:,.2f}**")
             else:
                 st.info("Por favor, selecciona las métricas para el cálculo.")
@@ -305,7 +300,6 @@ with st.container():
     with st.expander("5. Mapa Interactivo de Georeferencia", expanded=True):
         st.subheader("Mapa de georeferencia de los lugares")
 
-        # Usar los nuevos nombres de columnas 'longitude' y 'latitude'
         if "longitude" in filtered_df.columns and "latitude" in filtered_df.columns and not filtered_df.empty:
             map_data = filtered_df[['longitude', 'latitude', 'Tecnico']].copy()
             map_data = map_data.dropna(subset=['longitude', 'latitude'])
@@ -356,7 +350,3 @@ with st.container():
             st.info("El archivo no contiene las columnas 'longitude' y 'latitude' o no hay datos válidos.")
 
 st.markdown("---")
-
-# =========================================================================
-# === FIN DE LA REORGANIZACIÓN DEL DASHBOARD ===
-# =========================================================================
